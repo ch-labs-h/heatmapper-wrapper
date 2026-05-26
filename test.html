@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Prototype Session</title>
+  <style>
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html, body {
+      height: 100%;
+      overflow: hidden;
+    }
+
+    body {
+      display: flex;
+      flex-direction: column;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+      font-size: 14px;
+      background: #f9f9f7;
+      color: #333;
+    }
+
+    /* ── Privacy bar ── */
+    #privacy-bar {
+      flex-shrink: 0;
+      background: #f0f0ec;
+      border-bottom: 1px solid #ddd;
+      padding: 7px 16px;
+      font-size: 12px;
+      color: #555;
+      line-height: 1.5;
+    }
+
+    /* ── Toolbar ── */
+    #toolbar {
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: #fff;
+      border-bottom: 1px solid #e8e8e8;
+      padding: 10px 16px;
+      gap: 12px;
+    }
+
+    #recording-indicator {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      color: #333;
+    }
+
+    #recording-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #22c55e;
+      flex-shrink: 0;
+      animation: pulse 1.4s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0.35; }
+    }
+
+    #toolbar-buttons {
+      display: flex;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+
+    button {
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 13px;
+      border-radius: 6px;
+      padding: 7px 16px;
+      transition: opacity 0.15s, background 0.15s;
+      white-space: nowrap;
+    }
+
+    button:focus-visible {
+      outline: 2px solid #1a1a2e;
+      outline-offset: 2px;
+    }
+
+    #btn-finish {
+      background: #1a1a2e;
+      color: #fff;
+      border: 1px solid #1a1a2e;
+    }
+
+    #btn-finish:hover {
+      background: #2d2d4a;
+      border-color: #2d2d4a;
+    }
+
+    #btn-cancel {
+      background: transparent;
+      color: #555;
+      border: 1px solid #bbb;
+    }
+
+    #btn-cancel:hover {
+      background: #f5f5f3;
+    }
+
+    /* ── Iframe wrap ── */
+    #iframe-wrap {
+      flex: 1 1 0;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    #figma-frame {
+      width: 100%;
+      height: 100%;
+      border: none;
+      display: block;
+    }
+
+    /* ── Error view ── */
+    #error-view {
+      display: none;
+      flex: 1 1 0;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 40px 24px;
+      text-align: center;
+    }
+
+    #error-view .icon {
+      font-size: 32px;
+      margin-bottom: 16px;
+    }
+
+    #error-view h2 {
+      font-size: 17px;
+      color: #1a1a2e;
+      margin-bottom: 8px;
+    }
+
+    #error-view p {
+      font-size: 14px;
+      color: #666;
+      max-width: 420px;
+      line-height: 1.6;
+    }
+
+    /* ── Status view (post-finish / post-cancel) ── */
+    #status-view {
+      display: none;
+      flex: 1 1 0;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 40px 24px;
+      text-align: center;
+    }
+
+    #status-view .icon {
+      font-size: 36px;
+      margin-bottom: 16px;
+    }
+
+    #status-view h2 {
+      font-size: 17px;
+      color: #1a1a2e;
+      margin-bottom: 12px;
+    }
+
+    #status-view p {
+      font-size: 14px;
+      color: #555;
+      max-width: 480px;
+      line-height: 1.7;
+    }
+
+    .status-success h2 { color: #166534; }
+    .status-cancel  h2 { color: #7c3aed; }
+
+    /* ── Status action buttons ── */
+    .status-actions {
+      display: flex;
+      gap: 8px;
+      justify-content: center;
+      margin-top: 20px;
+      flex-wrap: wrap;
+    }
+
+    #btn-mail {
+      background: #1a1a2e;
+      color: #fff;
+      border: 1px solid #1a1a2e;
+    }
+
+    #btn-mail:hover {
+      background: #2d2d4a;
+      border-color: #2d2d4a;
+    }
+
+    #btn-copy-email {
+      background: transparent;
+      color: #555;
+      border: 1px solid #bbb;
+    }
+
+    #btn-copy-email:hover {
+      background: #f5f5f3;
+    }
+
+    /* ── Utility ── */
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+
+  <!-- Always visible -->
+  <div id="privacy-bar">
+    🔒 This tool captures click coordinates and timing only. No personal information is collected.
+    Click data is saved locally to your computer when you finish and is not sent to any server.
+    The researcher who shared this link will receive only what you choose to send them.
+  </div>
+
+  <!-- Recording toolbar -->
+  <div id="toolbar">
+    <div id="recording-indicator">
+      <div id="recording-dot"></div>
+      <span id="click-count-label">Recording — 0 clicks captured</span>
+    </div>
+    <div id="toolbar-buttons">
+      <button id="btn-finish" type="button">Finish session</button>
+      <button id="btn-cancel" type="button">Cancel and discard</button>
+    </div>
+  </div>
+
+  <!-- Figma prototype iframe -->
+  <div id="iframe-wrap">
+    <iframe
+      id="figma-frame"
+      title="Figma prototype"
+      allowfullscreen
+      allow="fullscreen"
+    ></iframe>
+  </div>
+
+  <!-- Error state (missing ?fig) -->
+  <div id="error-view">
+    <div class="icon">⚠️</div>
+    <h2>Missing prototype URL</h2>
+    <p>This page must be opened via a setup link. Please contact your researcher for the correct link.</p>
+  </div>
+
+  <!-- Post-action state -->
+  <div id="status-view">
+    <div class="icon" id="status-icon"></div>
+    <h2 id="status-heading"></h2>
+    <p id="status-body"></p>
+    <div id="status-actions" class="hidden">
+      <button id="btn-mail" type="button">Open in Mail</button>
+      <button id="btn-copy-email" type="button">Copy email</button>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      'use strict';
+
+      // ── State ──────────────────────────────────────────────────────────────
+      var events        = [];
+      var sessionStart  = null;   // Date.now() at init
+      var sessionStartISO = null; // ISO string at init
+      var viewport      = null;   // { width, height } captured once
+      var sessionId     = null;
+      var participantId = 'P01';
+      var prototypeUrl  = null;
+      var designerEmail = null;   // from ?to= param; null if absent
+      var recording     = false;
+
+      // ── DOM refs ───────────────────────────────────────────────────────────
+      var toolbar        = document.getElementById('toolbar');
+      var iframeWrap     = document.getElementById('iframe-wrap');
+      var figmaFrame     = document.getElementById('figma-frame');
+      var clickCountLabel = document.getElementById('click-count-label');
+      var errorView      = document.getElementById('error-view');
+      var statusView     = document.getElementById('status-view');
+      var statusIcon     = document.getElementById('status-icon');
+      var statusHeading  = document.getElementById('status-heading');
+      var statusBody     = document.getElementById('status-body');
+      var btnFinish      = document.getElementById('btn-finish');
+      var btnCancel      = document.getElementById('btn-cancel');
+      var statusActions  = document.getElementById('status-actions');
+      var btnMail        = document.getElementById('btn-mail');
+      var btnCopyEmail   = document.getElementById('btn-copy-email');
+
+      // ── Helpers ────────────────────────────────────────────────────────────
+      function copyToClipboard(text) {
+        if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+          return navigator.clipboard.writeText(text);
+        }
+        var ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.cssText = 'position:fixed;top:0;left:0;opacity:0;pointer-events:none';
+        document.body.appendChild(ta);
+        ta.focus();
+        ta.select();
+        try { document.execCommand('copy'); } finally { document.body.removeChild(ta); }
+        return Promise.resolve();
+      }
+
+      function round2(n) {
+        return Math.round(n * 100) / 100;
+      }
+
+      function generateUUID() {
+        if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+          return crypto.randomUUID();
+        }
+        // Fallback for environments without crypto.randomUUID
+        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+          var r = Math.random() * 16 | 0;
+          return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+        });
+      }
+
+      function showError() {
+        toolbar.classList.add('hidden');
+        iframeWrap.classList.add('hidden');
+        errorView.style.display = 'flex';
+      }
+
+      function showStatus(type, icon, heading, body) {
+        recording = false;
+        toolbar.classList.add('hidden');
+        iframeWrap.classList.add('hidden');
+        statusView.className = 'status-' + type;
+        statusView.style.display = 'flex';
+        statusIcon.textContent = icon;
+        statusHeading.textContent = heading;
+        statusBody.textContent = body;
+      }
+
+      function updateIndicator() {
+        var clickCount = events.filter(function (e) { return e.type === 'click'; }).length;
+        clickCountLabel.textContent = 'Recording — ' + clickCount + (clickCount === 1 ? ' click' : ' clicks') + ' captured';
+      }
+
+      // ── Init ───────────────────────────────────────────────────────────────
+      var params = new URLSearchParams(window.location.search);
+      var figParam = params.get('fig');
+
+      if (!figParam) {
+        showError();
+        return; // stop execution
+      }
+
+      // Decode prototype URL (supports both pre-encoded and raw values)
+      try {
+        prototypeUrl = decodeURIComponent(figParam);
+      } catch (e) {
+        prototypeUrl = figParam;
+      }
+
+      var pParam = params.get('p');
+      if (pParam && pParam.trim()) {
+        participantId = pParam.trim();
+      }
+
+      var toParam = params.get('to');
+      if (toParam && toParam.trim()) {
+        designerEmail = toParam.trim();
+      }
+
+      // Capture viewport once
+      viewport = { width: window.innerWidth, height: window.innerHeight };
+
+      // Session timestamps
+      var now = new Date();
+      sessionStart    = now.getTime();
+      sessionStartISO = now.toISOString();
+
+      // Generate session ID
+      sessionId = generateUUID();
+
+      // Safe session start log — no coords, no PII
+      console.log('Session started');
+
+      // Build and set iframe src
+      var embedSrc =
+        'https://www.figma.com/embed' +
+        '?embed_host=heatmapper' +
+        '&client-id=KR8aZQB4X5D8EpqqElsrUh' +
+        '&url=' + encodeURIComponent(prototypeUrl);
+      figmaFrame.src = embedSrc;
+
+      recording = true;
+
+      // ── postMessage listener ────────────────────────────────────────────────
+      window.addEventListener('message', function (e) {
+        if (!recording) return;
+
+        // Security: only accept messages from figma.com (any subdomain)
+        if (!e.origin) return;
+        try {
+          var hostname = new URL(e.origin).hostname;
+          if (!/(^|\.)figma\.com$/.test(hostname)) return;
+        } catch (_) {
+          return;
+        }
+
+        // Parse message — Figma can send strings or objects
+        var msg;
+        try {
+          msg = (typeof e.data === 'string') ? JSON.parse(e.data) : e.data;
+        } catch (_) {
+          return;
+        }
+
+        if (!msg || typeof msg !== 'object') return;
+
+        // Figma Embed Kit 2.0: payload is in msg.data, type is at msg.type
+        var d = msg.data;
+        if (!d || typeof d !== 'object') return;
+
+        var t = Date.now() - sessionStart;
+
+        if (msg.type === 'MOUSE_PRESS_OR_RELEASE') {
+          var pos = d.nearestScrollingFrameMousePosition;
+          if (!pos) return; // null guard — not all press events include position
+
+          events.push({
+            t:        t,
+            type:     'click',
+            frame_id: d.presentedNodeId || null,
+            x:        round2(pos.x),
+            y:        round2(pos.y),
+            handled:  !!d.handled
+          });
+          updateIndicator();
+
+        } else if (msg.type === 'PRESENTED_NODE_CHANGED') {
+          events.push({
+            t:           t,
+            type:        'frame_change',
+            frame_id:    d.presentedNodeId || null,
+            interaction: d.interactionType || null
+          });
+        }
+      });
+
+      // ── Button handlers ────────────────────────────────────────────────────
+      btnFinish.addEventListener('click', function () {
+        recording = false;
+
+        var endNow = new Date();
+        var payload = {
+          session_id:       sessionId,
+          participant_id:   participantId,
+          prototype_url:    prototypeUrl,
+          viewport:         viewport,
+          started_at:       sessionStartISO,
+          ended_at:         endNow.toISOString(),
+          duration_seconds: parseFloat(((endNow.getTime() - sessionStart) / 1000).toFixed(2)),
+          end_reason:       'manual',
+          event_count:      events.length,
+          events:           events.slice()
+        };
+
+        var json     = JSON.stringify(payload, null, 2);
+        var blob     = new Blob([json], { type: 'application/json' });
+        var url      = URL.createObjectURL(blob);
+        var shortId  = sessionId.slice(0, 8);
+        var filename = 'session_' + participantId + '_' + shortId + '.json';
+
+        var a = document.createElement('a');
+        a.href     = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+
+        // Build success view directly — email-conditional content needs DOM nodes, not textContent
+        toolbar.classList.add('hidden');
+        iframeWrap.classList.add('hidden');
+        statusView.className = 'status-success';
+        statusView.style.display = 'flex';
+        statusIcon.textContent = '✅';
+        statusHeading.textContent = 'Session saved.';
+
+        if (designerEmail) {
+          statusBody.textContent = '';
+          statusBody.appendChild(document.createTextNode('Session saved to your Downloads folder.'));
+          statusBody.appendChild(document.createElement('br'));
+          statusBody.appendChild(document.createTextNode('Send the file to: '));
+          var emailNode = document.createElement('strong');
+          emailNode.textContent = designerEmail;
+          statusBody.appendChild(emailNode);
+          statusActions.classList.remove('hidden');
+        } else {
+          statusBody.textContent = 'The file is in your Downloads folder. Send it to your researcher, then you can close this tab. Deleting the file after sending is recommended.';
+          statusActions.classList.add('hidden');
+        }
+      });
+
+      btnCancel.addEventListener('click', function () {
+        // Wipe all captured state
+        events = [];
+        recording = false;
+
+        showStatus(
+          'cancel',
+          '🗑️',
+          'Session discarded.',
+          'No data saved.'
+        );
+      });
+
+      // ── Email action handlers (only active when designerEmail is set) ───────
+      btnMail.addEventListener('click', function () {
+        if (!designerEmail) return;
+        var mailtoUrl =
+          'mailto:' + designerEmail +
+          '?subject=' + encodeURIComponent('Heatmap session from ' + participantId) +
+          '&body='    + encodeURIComponent(
+            "The session JSON file is attached. (You'll need to drag the file in from your Downloads folder.)"
+          );
+        window.location.href = mailtoUrl;
+      });
+
+      var copyEmailTimer = null;
+      btnCopyEmail.addEventListener('click', function () {
+        if (!designerEmail) return;
+        copyToClipboard(designerEmail)
+          .then(function () {
+            btnCopyEmail.textContent = 'Copied ✓';
+            clearTimeout(copyEmailTimer);
+            copyEmailTimer = setTimeout(function () {
+              btnCopyEmail.textContent = 'Copy email';
+            }, 2000);
+          })
+          .catch(function () { /* silent — clipboard blocked */ });
+      });
+
+    })();
+  </script>
+</body>
+</html>

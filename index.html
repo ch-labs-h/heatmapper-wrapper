@@ -4,6 +4,10 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Heatmapper</title>
+  <script>
+    window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
+  </script>
+  <script defer src="/_vercel/insights/script.js"></script>
   <style>
     *, *::before, *::after {
       box-sizing: border-box;
@@ -303,7 +307,7 @@
         return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val);
       }
 
-      // ── Clipboard helper ───────────────────────────────────────────────────
+      // ── Clipboard helper ─────────────────────────────────────────��─────────
       function copyToClipboard(text) {
         if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
           return navigator.clipboard.writeText(text);

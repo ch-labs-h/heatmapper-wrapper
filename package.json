@@ -1,0 +1,15 @@
+{
+  "name": "heatmapper-wrapper",
+  "version": "1.0.0",
+  "description": "Heatmapper - Generate test links for Figma prototypes",
+  "type": "module",
+  "scripts": {
+    "dev": "serve .",
+    "preview": "serve ."
+  },
+  "dependencies": {
+    "@vercel/analytics": "^1.4.1"
+  },
+  "devDependencies": {},
+  "private": true
+}
